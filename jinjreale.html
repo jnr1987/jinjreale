@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JINJREALE - 給与予測シミュレーター</title>
+    <style>
+        :root {
+            --primary: #1F4E78;
+            --secondary: #D9E1F2;
+            --accent: #E2EFDA;
+            --text: #333;
+            --bg: #f4f7f6;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            padding: 20px;
+            margin: 0;
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: #fff;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+        }
+        h1 {
+            text-align: center;
+            color: var(--primary);
+            font-size: 1.5rem;
+            border-bottom: 2px solid var(--primary);
+            padding-bottom: 10px;
+        }
+        .section-title {
+            background-color: var(--secondary);
+            color: var(--primary);
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-weight: bold;
+            margin-top: 20px;
+            font-size: 1.1rem;
+        }
+        .form-group {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid #eee;
+        }
+        .form-group label {
+            flex: 1;
+            font-size: 0.95rem;
+        }
+        .form-group input {
+            width: 100px;
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            text-align: right;
+            font-size: 1rem;
+        }
+        .form-group span.note {
+            display: block;
+            font-size: 0.75rem;
+            color: #777;
+            margin-top: 2px;
+        }
+        .calc-btn {
+            display: block;
+            width: 100%;
+            background-color: var(--primary);
+            color: #fff;
+            border: none;
+            padding: 15px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            border-radius: 8px;
+            margin-top: 25px;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+        .calc-btn:hover {
+            opacity: 0.9;
+        }
+        .result-box {
+            background-color: var(--accent);
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+            border: 1px solid #c3d69b;
+        }
+        .result-item {
+            display: flex;
+            justify-content: space-between;
+            font-weight: bold;
+            font-size: 1.1rem;
+            padding: 5px 0;
+        }
+        .result-item.highlight {
+            font-size: 1.3rem;
+            color: var(--primary);
+            border-top: 2px dashed #a9c08a;
+            padding-top: 10px;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>JINJREALE 予測ツール</h1>
+
+    <div class="section-title">1. 基礎情報</div>
+    <div class="form-group">
+        <div>
+            <label>算定基礎額 (円)</label>
+            <span class="note">基本給＋各種固定手当（一都三県在住の係員は1.5万+4.5万）</span>
+        </div>
+        <input type="number" id="baseSalary" value="295000">
+    </div>
+    <div class="form-group">
+        <div>
+            <label>月平均所定労働時間（基本的に150時間）</label>
+        </div>
+        <input type="number" id="baseHours" value="150">
+    </div>
+
+    <div class="section-title">2. 勤務実績 (時間:分)</div>
+    <div class="form-group">
+        <div>
+            <label>B時間 (超勤 130%)</label>
+            <span class="note">例: 05:00</span>
+        </div>
+        <input type="text" id="timeB" value="00:00" placeholder="hh:mm">
+    </div>
+    <div class="form-group">
+        <div>
+            <label>C時間 (深夜 45%)</label>
+        </div>
+        <input type="text" id="timeC" value="00:00" placeholder="hh:mm">
+    </div>
+    <div class="form-group">
+        <div>
+            <label>F時間 (夜明 30%)</label>
+        </div>
+        <input type="text" id="timeF" value="00:00" placeholder="hh:mm">
+    </div>
+    <div class="form-group">
+        <div>
+            <label>G時間 (夕朝 15%)</label>
+        </div>
+        <input type="text" id="timeG" value="00:00" placeholder="hh:mm">
+    </div>
+
+    <div class="section-title">3. 控除額 (天引き)</div>
+    <div class="form-group">
+        <div>
+            <label>控除額合計 (円)</label>
+            <span class="note">社保・税・寮費などの合計</span>
+        </div>
+        <input type="number" id="deductions" value="0">
+    </div>
+
+    <button class="calc-btn" onclick="calculateSalary()">手取りを予測する</button>
+
+    <div class="result-box" id="resultBox" style="display: none;">
+        <div class="result-item">
+            <span>変動手当 合計:</span>
+            <span id="resAllowance">¥0</span>
+        </div>
+        <div class="result-item">
+            <span>総支給額 (額面):</span>
+            <span id="resTotal">¥0</span>
+        </div>
+        <div class="result-item highlight">
+            <span>予測手取り額:</span>
+            <span id="resNet">¥0</span>
+        </div>
+    </div>
+</div>
+
+<script>
+    // 時間の文字列("hh:mm")を10進数(hours)に変換する関数
+    function parseTime(timeStr) {
+        if (!timeStr || !timeStr.includes(':')) return 0;
+        const parts = timeStr.split(':');
+        const h = parseInt(parts[0], 10) || 0;
+        const m = parseInt(parts[1], 10) || 0;
+        return h + (m / 60);
+    }
+
+    function calculateSalary() {
+        // 値の取得
+        const baseSalary = parseInt(document.getElementById('baseSalary').value, 10) || 0;
+        const baseHours = parseInt(document.getElementById('baseHours').value, 10) || 150;
+        const deductions = parseInt(document.getElementById('deductions').value, 10) || 0;
+
+        const timeB = parseTime(document.getElementById('timeB').value);
+        const timeC = parseTime(document.getElementById('timeC').value);
+        const timeF = parseTime(document.getElementById('timeF').value);
+        const timeG = parseTime(document.getElementById('timeG').value);
+
+        // 時給単価の計算（切り捨て）
+        const unitPrice = (baseHours > 0) ? Math.floor(baseSalary / baseHours) : 0;
+
+        // 各手当の計算（切り捨て）
+        const allowB = Math.floor(unitPrice * 1.30 * timeB);
+        const allowC = Math.floor(unitPrice * 0.45 * timeC);
+        const allowF = Math.floor(unitPrice * 0.30 * timeF);
+        const allowG = Math.floor(unitPrice * 0.15 * timeG);
+
+        const totalAllowance = allowB + allowC + allowF + allowG;
+        const grossSalary = baseSalary + totalAllowance;
+        const netSalary = grossSalary - deductions;
+
+        // 結果の表示
+        document.getElementById('resAllowance').innerText = '¥' + totalAllowance.toLocaleString();
+        document.getElementById('resTotal').innerText = '¥' + grossSalary.toLocaleString();
+        document.getElementById('resNet').innerText = '¥' + netSalary.toLocaleString();
+        
+        document.getElementById('resultBox').style.display = 'block';
+    }
+</script>
+
+</body>
+</html>
