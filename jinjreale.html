@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>JINJREALE - 給与予測シミュレーター</title>
+    <title>JINJREALE</title>
     <style>
         :root {
             --primary: #1F4E78;
@@ -54,9 +54,10 @@
         .form-group label {
             flex: 1;
             font-size: 0.95rem;
+            font-weight: 500;
         }
         .form-group input {
-            width: 100px;
+            width: 90px;
             padding: 8px;
             border: 1px solid #ccc;
             border-radius: 6px;
@@ -97,8 +98,13 @@
             display: flex;
             justify-content: space-between;
             font-weight: bold;
-            font-size: 1.1rem;
+            font-size: 1.05rem;
             padding: 5px 0;
+        }
+        .result-item.sub {
+            font-size: 0.9rem;
+            color: #555;
+            font-weight: normal;
         }
         .result-item.highlight {
             font-size: 1.3rem;
@@ -112,62 +118,78 @@
 <body>
 
 <div class="container">
-    <h1>JINJREALE 予測ツール</h1>
+    <h1>JINJREALE</h1>
 
-    <div class="section-title">1. 基礎情報</div>
+    <div class="section-title">1. 算定基礎額</div>
     <div class="form-group">
         <div>
-            <label>算定基礎額 (円)</label>
-            <span class="note">基本給＋各種固定手当（一都三県在住の係員は1.5万+4.5万）</span>
+            <label>基礎額合計 (円)</label>
+            <span class="note">職務能力給＋マネジメント手当＋業務手当＋住宅等手当（地域額）</span>
         </div>
         <input type="number" id="baseSalary" value="295000">
     </div>
+
+    <div class="section-title">2. 超勤・休日勤務 (hh:mm)</div>
     <div class="form-group">
         <div>
-            <label>月平均所定労働時間（基本的に150時間）</label>
+            <label>A時間 (100%)</label>
         </div>
-        <input type="number" id="baseHours" value="150">
+        <input type="text" id="timeA" value="00:00" placeholder="00:00">
     </div>
-
-    <div class="section-title">2. 勤務実績 (時間:分)</div>
     <div class="form-group">
         <div>
             <label>B時間 (超勤 130%)</label>
-            <span class="note">例: 05:00</span>
         </div>
-        <input type="text" id="timeB" value="00:00" placeholder="hh:mm">
+        <input type="text" id="timeB" value="00:00" placeholder="00:00">
     </div>
+    <div class="form-group">
+        <div>
+            <label>D時間 (休出 135%)</label>
+        </div>
+        <input type="text" id="timeD" value="00:00" placeholder="00:00">
+    </div>
+    <div class="form-group">
+        <div>
+            <label>E時間 (60h超 150%)</label>
+        </div>
+        <input type="text" id="timeE" value="00:00" placeholder="00:00">
+    </div>
+
+    <div class="section-title">3. 特定時間割増 (hh:mm)</div>
     <div class="form-group">
         <div>
             <label>C時間 (深夜 45%)</label>
         </div>
-        <input type="text" id="timeC" value="00:00" placeholder="hh:mm">
+        <input type="text" id="timeC" value="00:00" placeholder="00:00">
     </div>
     <div class="form-group">
         <div>
             <label>F時間 (夜明 30%)</label>
         </div>
-        <input type="text" id="timeF" value="00:00" placeholder="hh:mm">
+        <input type="text" id="timeF" value="00:00" placeholder="00:00">
     </div>
     <div class="form-group">
         <div>
             <label>G時間 (夕朝 15%)</label>
         </div>
-        <input type="text" id="timeG" value="00:00" placeholder="hh:mm">
+        <input type="text" id="timeG" value="00:00" placeholder="00:00">
     </div>
 
-    <div class="section-title">3. 控除額 (天引き)</div>
+    <div class="section-title">4. 控除額 (天引き)</div>
     <div class="form-group">
         <div>
             <label>控除額合計 (円)</label>
-            <span class="note">社保・税・寮費などの合計</span>
         </div>
         <input type="number" id="deductions" value="0">
     </div>
 
-    <button class="calc-btn" onclick="calculateSalary()">手取りを予測する</button>
+    <button class="calc-btn" onclick="calculateSalary()">手取りを計算する</button>
 
     <div class="result-box" id="resultBox" style="display: none;">
+        <div class="result-item sub">
+            <span>適用時給単価 (149.9割):</span>
+            <span id="resHourly">¥0</span>
+        </div>
         <div class="result-item">
             <span>変動手当 合計:</span>
             <span id="resAllowance">¥0</span>
@@ -184,7 +206,6 @@
 </div>
 
 <script>
-    // 時間の文字列("hh:mm")を10進数(hours)に変換する関数
     function parseTime(timeStr) {
         if (!timeStr || !timeStr.includes(':')) return 0;
         const parts = timeStr.split(':');
@@ -194,30 +215,45 @@
     }
 
     function calculateSalary() {
-        // 値の取得
         const baseSalary = parseInt(document.getElementById('baseSalary').value, 10) || 0;
-        const baseHours = parseInt(document.getElementById('baseHours').value, 10) || 150;
         const deductions = parseInt(document.getElementById('deductions').value, 10) || 0;
 
+        // 第108条: 149.9で割り、1銭(0.01)未満切り上げ
+        let rawHourly = baseSalary / 149.9;
+        let hourlyWage = Math.ceil(rawHourly * 100) / 100;
+
+        // 第109条: 単価ごとに掛率を乗じ、四捨五入(50銭以上切り上げ)
+        const priceA = Math.round(hourlyWage * 1.00);
+        const priceB = Math.round(hourlyWage * 1.30);
+        const priceC = Math.round(hourlyWage * 0.45);
+        const priceD = Math.round(hourlyWage * 1.35);
+        const priceE = Math.round(hourlyWage * 1.50);
+        const priceF = Math.round(hourlyWage * 0.30);
+        const priceG = Math.round(hourlyWage * 0.15);
+
+        // 入力時間の取得
+        const timeA = parseTime(document.getElementById('timeA').value);
         const timeB = parseTime(document.getElementById('timeB').value);
         const timeC = parseTime(document.getElementById('timeC').value);
+        const timeD = parseTime(document.getElementById('timeD').value);
+        const timeE = parseTime(document.getElementById('timeE').value);
         const timeF = parseTime(document.getElementById('timeF').value);
         const timeG = parseTime(document.getElementById('timeG').value);
 
-        // 時給単価の計算（切り捨て）
-        const unitPrice = (baseHours > 0) ? Math.floor(baseSalary / baseHours) : 0;
+        // 手当額の計算 (支給額は通常、最終切り捨て)
+        const totalAllowance = 
+            Math.floor(priceA * timeA) +
+            Math.floor(priceB * timeB) +
+            Math.floor(priceC * timeC) +
+            Math.floor(priceD * timeD) +
+            Math.floor(priceE * timeE) +
+            Math.floor(priceF * timeF) +
+            Math.floor(priceG * timeG);
 
-        // 各手当の計算（切り捨て）
-        const allowB = Math.floor(unitPrice * 1.30 * timeB);
-        const allowC = Math.floor(unitPrice * 0.45 * timeC);
-        const allowF = Math.floor(unitPrice * 0.30 * timeF);
-        const allowG = Math.floor(unitPrice * 0.15 * timeG);
-
-        const totalAllowance = allowB + allowC + allowF + allowG;
         const grossSalary = baseSalary + totalAllowance;
         const netSalary = grossSalary - deductions;
 
-        // 結果の表示
+        document.getElementById('resHourly').innerText = '¥' + hourlyWage.toFixed(2);
         document.getElementById('resAllowance').innerText = '¥' + totalAllowance.toLocaleString();
         document.getElementById('resTotal').innerText = '¥' + grossSalary.toLocaleString();
         document.getElementById('resNet').innerText = '¥' + netSalary.toLocaleString();
